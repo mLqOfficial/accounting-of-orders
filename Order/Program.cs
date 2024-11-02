@@ -1,8 +1,104 @@
+List<string> Notifications = new List<string>();
+List<string> NotificationsBot = new List<string>();
+Repository repository = new Repository();
+List<Order> Orders = new List<Order>
+{
+    new Order("Телефон","Сломался экран","Много трещин","Максим"),
+    new Order("Планшет","Лагает","Вмятины","Саня"),
+    new Order("Компьютер","Не запускается","Неизвестно","Богдан")
+};
+repository.Orders = Orders;
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Open", builder => builder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+});
 var app = builder.Build();
-
-app.MapGet("/", () => "Hello World!");
-
+app.UseCors("Open");
+app.MapGet("/", () =>
+{
+    var data = new
+    {
+        orders = repository.ReadAll(),
+        notifications = Notifications.ToList(),
+    };
+    Console.WriteLine(Notifications);
+    Notifications.Clear();
+    return Results.Json(data);
+});
+app.MapGet("/bot", () =>
+{
+    var data = new
+    {
+        orders = repository.ReadAll(),
+        notifications = NotificationsBot.ToList(),
+    };
+    NotificationsBot.Clear();
+    return Results.Json(data);
+});
+app.MapGet("/order/id/{id}", (int id) => repository.Read(id));
+app.MapGet("/statistics", () =>
+{
+    var statistics = new
+    {
+        CompletedOrders = repository.CompleteOrders(),
+        AverageExecutionTime = repository.AverageExecutionTime(),
+        ProblemTypeStatistics = repository.ProblemTypeStatictics()
+    };
+    return Results.Json(statistics);
+});
+app.MapPost("/order/add", (Order order) =>
+{
+    repository.AddOrder(new Order(order.Device, order.ProblemType, order.Description, order.Client));
+    Notifications.Add($"Заявка добавлена");
+    NotificationsBot.Add($"Заявка добавлена");
+});
+app.MapPut("/order/update/id/{id}", (int id, Order order) =>
+{
+    var orderOld = repository.Read(id);
+    if (!string.IsNullOrEmpty(order.Device))
+    {
+        orderOld.Device = order.Device;
+    }
+    if (!string.IsNullOrEmpty(order.ProblemType))
+    {
+        orderOld.ProblemType = order.ProblemType;
+    }
+    if (!string.IsNullOrEmpty(order.Description))
+    {
+        orderOld.Description = order.Description;
+    }
+    if (!string.IsNullOrEmpty(order.Client))
+    {
+        orderOld.Client = order.Client;
+    }
+    if (Enum.IsDefined(typeof(Status), order.Status))
+    {
+        if (order.Status == Status.Complete)
+        {
+            Notifications.Add($"Заявка {id} выполнена");
+            NotificationsBot.Add($"Заявка {id} выполнена");
+        }
+        orderOld.Status = order.Status;
+        if (order.Status == Status.InProcess)
+        {
+            Notifications.Add($"Заявка {id} в работе");
+            NotificationsBot.Add($"Заявка {id} работе");
+        }
+        orderOld.Status = order.Status;
+    }
+    if (!string.IsNullOrEmpty(order.Master))
+    {
+        orderOld.Master = order.Master;
+    }
+    if (!string.IsNullOrEmpty(order.Comment))
+    {
+        orderOld.Comment = order.Comment;
+    }
+    Notifications.Add($"Заявка {id} обновлена");
+    NotificationsBot.Add($"Заявка {id} обновлена");
+});
+app.MapDelete("/order/delete/id/{id}", (int id) => repository.DeleteOrder(id));
 app.Run();
 public enum Status
 {
