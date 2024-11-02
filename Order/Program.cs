@@ -38,3 +38,42 @@ class Order
     }
     public static int IdChek { get; set; } = 1;
 }
+class Repository
+{
+    public List<Order> Orders { get; set; } = new List<Order>();
+    public void AddOrder(Order order)
+    {
+        Orders.Add(order);
+    }
+    public Order Read(int id)
+    {
+        return Orders.ToList().Find(x => x.Id == id);
+    }
+    public List<Order> ReadAll()
+    {
+        return Orders.ToList();
+    }
+    public void DeleteOrder(int id)
+    {
+        Orders.Remove(Read(id));
+    }
+    public int CompleteOrders()
+    {
+        return Orders.Count(o => o.Status == Status.Complete);
+    }
+    public TimeSpan AverageExecutionTime()
+    {
+        var completeOrders = Orders.Where(o => o.Status == Status.Complete);
+        if (completeOrders.Any())
+        {
+            return TimeSpan.FromSeconds(completeOrders.Average(o => (o.EndDate - o.StartDate).Seconds));
+        }
+        return TimeSpan.Zero;
+    }
+    public Dictionary<string, int> ProblemTypeStatictics()
+    {
+        return Orders.ToList()
+           .GroupBy(o => o.ProblemType)
+           .ToDictionary(g => g.Key, g => g.Count());
+    }
+}
